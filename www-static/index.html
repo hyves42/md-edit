@@ -33,6 +33,10 @@
       <h2>Hello, <span data-bind="text: fullName"> </span>!</h2>
 
     </div>
+    <div class="container">
+      <editable-widget params="text: editableText"></editable-widget>
+      <editable-widget params="text: editableText"></editable-widget>    
+    </div>
   </section>
 
   <section class="section section-footer"> 
@@ -48,11 +52,80 @@
 <script src="/js/jquery-3.3.1.min.js"></script>
 <script src='/js/knockout-min-3.4.2.js'></script>
 <script>
+  // editable model
+  ko.bindingHandlers.editableModel = {
+      init: function(element, valueAccessor, allBindings, viewModel, bindingContext) {
+        element.addEventListener('input', function(event){
+          //console.log(event);
+          console.log(event.target.innerText);
+          valueAccessor().inhibit_update = true;
+          valueAccessor().source_text(event.target.innerText);
+          valueAccessor().inhibit_update = false;
+          console.log(valueAccessor().source_text());
+        });
+
+        element.addEventListener("paste", function(event){
+          console.log(event);
+        });
+
+        $(element).html(ko.unwrap(valueAccessor().source_text()));
+      },
+      update: function(element, valueAccessor, allBindings, viewModel, bindingContext) {
+        var value = ko.unwrap(valueAccessor().editing());
+        var source_text = ko.unwrap(valueAccessor().source_text());
+        console.log("update");
+        if (!valueAccessor().inhibit_update){
+          $(element).attr('contenteditable',value);
+          $(element).html(source_text);
+        }
+      }
+  };
+
+  // editable model
+  ko.bindingHandlers.renderModel = {
+      init: function(element, valueAccessor, allBindings, viewModel, bindingContext) {
+        $(element).html(ko.unwrap(valueAccessor().html_content()));
+      },
+      update: function(element, valueAccessor, allBindings, viewModel, bindingContext) {
+        $(element).html(ko.unwrap(valueAccessor().html_content()));
+      }
+  };
+
+  // source_text must be ko.observable()
+  function EditableModel(source_text) {
+    this.source_text = source_text;
+    this.html_content = ko.computed(function() {
+        return this.source_text();}, this);
+    this.editing = ko.observable(false);
+    this.editable = ko.observable(true);
+    this.inhibit_update = false;
+  }
+
+  ko.components.register('editable-widget', {
+    viewModel: function(params) {
+        // Data: value is either null, 'like', or 'dislike'
+        this.model = new EditableModel(params.text);
+
+        // Behaviors
+        this.start_edit = function() { this.model.editing(true); }.bind(this);
+        this.stop_edit = function() { this.model.editing(false); }.bind(this);
+    },
+    template:
+        '<div>\
+            <button data-bind="click: start_edit">start edit</button>\
+            <button data-bind="click: stop_edit">stop edit</button>\
+        </div>\
+        <div data-bind="editableModel: model"></div>\
+        <div data-bind="renderModel: model"></div>'
+  });
+
+
   // Here's my data model
   var ViewModel = function(first, last) {
     var self = this;
     self.firstName = ko.observable(first);
     self.lastName = ko.observable(last);
+    self.editableText = ko.observable("caca");
  
     self.fullName = ko.pureComputed(function() {
         // Knockout tracks dependencies automatically. It knows that fullName depends on firstName and lastName, because these get called when evaluating fullName.
